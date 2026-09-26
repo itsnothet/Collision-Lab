@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Interactive one-dimensional collision simulator.">
+<title>Collision Lab</title>
+
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<!-- iOS "Add to Home Screen" app behavior -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Collision Lab">
+<style>
+  :root {
+    --page: #dcdcdf;
+    --panel: #eaeaec;
+    --card: #f4f4f5;
+    --ink: #000;
+    --ink-2: #48484d;
+    --ink-3: #64646a;
+    --line: rgba(0, 0, 0, .09);
+    --track: #c6c6cb;
+    --font: Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: clamp(14px, 3.5vw, 44px);
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font);
+    font-feature-settings: "tnum" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    width: min(1080px, 100%);
+    margin: 0 auto;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 6px 4px 28px;
+  }
+
+  .mark {
+    flex: none;
+    width: clamp(46px, 7vw, 60px);
+    height: clamp(46px, 7vw, 60px);
+    border-radius: 26%;
+    background: #000;
+    box-shadow: 0 10px 20px -10px rgba(0, 0, 0, .45);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(38px, 7vw, 68px);
+    font-weight: 650;
+    letter-spacing: -.045em;
+    line-height: .98;
+  }
+
+  .lede {
+    margin: 14px 0 0;
+    max-width: 46ch;
+    color: var(--ink-2);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* ---------- Device panel ---------- */
+  .device {
+    padding: clamp(12px, 2vw, 20px);
+    background: var(--panel);
+    border-radius: 28px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .8),
+      0 0 0 1px rgba(0, 0, 0, .06),
+      0 40px 70px -40px rgba(0, 0, 0, .35);
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 2px 16px;
+  }
+
+  .actions { display: flex; gap: 8px; }
+
+  button {
+    appearance: none;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    border: 0;
+    transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  }
+
+  button:active { transform: scale(.97); }
+
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  /* Mode switch */
+  .segmented {
+    display: inline-flex;
+    padding: 4px;
+    background: #d2d2d6;
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .14);
+  }
+
+  .segmented button {
+    padding: 9px 18px;
+    background: transparent;
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-size: 14px;
+    font-weight: 550;
+    letter-spacing: -.005em;
+  }
+
+  .segmented button:hover { color: var(--ink); }
+
+  .segmented button.active {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .08);
+  }
+
+  /* Action buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -.005em;
+  }
+
+  .btn svg { width: 14px; height: 14px; flex: none; fill: currentColor; }
+
+  .btn.secondary {
+    background: var(--card);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .12), inset 0 1px 0 #fff;
+  }
+
+  .btn.secondary:hover { background: #fff; }
+
+  .btn.primary {
+    min-width: 116px;
+    background: #000;
+    color: #fff;
+    box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .6);
+  }
+
+  .btn.primary:hover { background: #2a2a2c; }
+  .btn.primary:focus-visible { outline-color: #000; }
+
+  #play .i-pause, #play .l-pause { display: none; }
+  #play[data-state="playing"] .i-play, #play[data-state="playing"] .l-play { display: none; }
+  #play[data-state="playing"] .i-pause { display: block; }
+  #play[data-state="playing"] .l-pause { display: inline; }
+
+  /* ---------- Screen ---------- */
+  .screen {
+    border-radius: 18px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .55), 0 2px 0 rgba(255, 255, 255, .7);
+  }
+
+  canvas { display: block; width: 100%; height: auto; }
+
+  .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 20px;
+    padding: 14px 6px 18px;
+    font-size: 14px;
+  }
+
+  #status { color: var(--ink); font-weight: 550; }
+  .hint { color: var(--ink-3); font-size: 13px; }
+
+  /* ---------- Cards ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .card {
+    padding: 20px 22px 22px;
+    background: var(--card);
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, .9);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+  }
+
+  .card-head .who { display: inline-flex; align-items: center; gap: 10px; }
+
+  .swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .4);
+  }
+
+  .swatch.a { background: #f5f5f6; }
+  .swatch.b { background: #8e8e93; }
+
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 20px 0 8px;
+  }
+
+  label { color: var(--ink-2); font-size: 14px; }
+
+  output {
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Sliders ---------- */
+  .slider { position: relative; }
+
+  .slider.zero::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2px;
+    height: 14px;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, .3);
+    border-radius: 1px;
+    pointer-events: none;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 24px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right,
+      var(--track) var(--sa, 0px), #000 var(--sa, 0px),
+      #000 var(--sb, 0px), var(--track) var(--sb, 0px));
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right,
+      var(--track) var(--sa, 0px), #000 var(--sa, 0px),
+      #000 var(--sb, 0px), var(--track) var(--sb, 0px));
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+    border-radius: 50%;
+    background: #000;
+    border: 5px solid var(--card);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .22), 0 3px 6px rgba(0, 0, 0, .3);
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #000;
+    border: 5px solid var(--card);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .22), 0 3px 6px rgba(0, 0, 0, .3);
+  }
+
+  input[type="range"]:focus-visible { outline: none; }
+  input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #000; }
+  input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #000; }
+
+  /* ---------- Readouts ---------- */
+  .badge {
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: #e3e3e6;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06);
+    color: var(--ink-2);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge.ok { background: #000; color: #fff; box-shadow: none; }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 20px;
+  }
+
+  .pair > div { min-width: 0; }
+
+  .pair > div + div {
+    padding-left: 22px;
+    border-left: 1px solid var(--line);
+  }
+
+  .pair small {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+
+  .pair strong {
+    display: block;
+    font-size: clamp(26px, 4.4vw, 34px);
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .unit {
+    display: block;
+    margin-top: 6px;
+    color: var(--ink-3);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .note {
+    padding: 16px 22px;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .note b { color: var(--ink); font-weight: 650; }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 640px) {
+    .device { border-radius: 22px; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .segmented { display: flex; }
+    .segmented button { flex: 1 1 0; padding: 10px 8px; }
+    .actions .btn { flex: 1 1 0; }
+    .card { padding: 18px; }
+    .pair > div + div { padding-left: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+    button:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+
+  <header class="masthead">
+    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="17" fill="#000"/>
+      <circle cx="24" cy="32" r="13" fill="#f5f5f6"/>
+      <circle cx="42" cy="32" r="9" fill="#8e8e93"/>
+    </svg>
+    <div>
+      <h1>Collision Lab</h1>
+      <p class="lede">Interactive one-dimensional collision simulator. Works offline.</p>
+    </div>
+  </header>
+
+  <section class="device" aria-label="Collision simulator">
+
+    <div class="toolbar">
+      <div class="segmented" role="group" aria-label="Collision type">
+        <button id="elastic" class="active" aria-pressed="true">Elastic</button>
+        <button id="inelastic" aria-pressed="false">Perfectly inelastic</button>
+      </div>
+      <div class="actions">
+        <button id="reset" class="btn secondary">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 0 5.4 6.6.9.9 0 1 0-1.8-.3A3.7 3.7 0 1 1 8 4.3c.7 0 1.4.2 2 .6l-1 1a.5.5 0 0 0 .4.9h3.2a.5.5 0 0 0 .5-.5V3.1a.5.5 0 0 0-.9-.4l-.9.9A5.5 5.5 0 0 0 8 2.5Z"/></svg>
+          Reset
+        </button>
+        <button id="play" class="btn primary" data-state="paused">
+          <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L5.4 2.1a.6.6 0 0 0-.9.5Z"/></svg>
+          <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.2" height="11" rx="1"/><rect x="9.3" y="2.5" width="3.2" height="11" rx="1"/></svg>
+          <span class="l-play">Play</span><span class="l-pause">Pause</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="screen">
+      <canvas id="c" width="1000" height="340" aria-label="Two carts colliding"></canvas>
+    </div>
+
+    <div class="status-row">
+      <span id="status" role="status" aria-live="polite">Ready to collide</span>
+      <span class="hint">Changing any value resets the run.</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-head"><span class="who"><span class="swatch a"></span>Cart A</span></div>
+        <div class="row"><label for="m1">Mass</label><output id="m1o"></output></div>
+        <div class="slider"><input id="m1" type="range" min="1" max="10" step=".5" value="2"></div>
+        <div class="row"><label for="u1">Initial velocity</label><output id="u1o"></output></div>
+        <div class="slider zero"><input id="u1" type="range" min="-5" max="5" step=".5" value="2"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="who"><span class="swatch b"></span>Cart B</span></div>
+        <div class="row"><label for="m2">Mass</label><output id="m2o"></output></div>
+        <div class="slider"><input id="m2" type="range" min="1" max="10" step=".5" value="1"></div>
+        <div class="row"><label for="u2">Initial velocity</label><output id="u2o"></output></div>
+        <div class="slider zero"><input id="u2" type="range" min="-5" max="5" step=".5" value="-1"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-head"><span>Momentum</span><span class="badge" id="pbadge"></span></div>
+        <div class="pair">
+          <div><small>Before</small><strong id="pb"></strong></div>
+          <div><small>After</small><strong id="pa"></strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span>Kinetic energy</span><span class="badge" id="kbadge"></span></div>
+        <div class="pair">
+          <div><small>Before</small><strong id="kb"></strong></div>
+          <div><small>After</small><strong id="ka"></strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="formula" class="card note"></div>
+
+  </section>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id),cv=$('c'),ctx=cv.getContext('2d');
+const W=1000,H=340,dpr=Math.min(window.devicePixelRatio||1,2);
+cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+
+const F='Inter,"SF Pro Display",-apple-system,"Helvetica Neue","Segoe UI",Roboto,Arial,sans-serif';
+const CA='#f5f5f6',CB='#8e8e93',TRACK_Y=276;
+const num=v=>String(v).replace('-','\u2212');
+
+let mode='elastic',run=false,hit=false,last=0,raf=0,s={m1:2,m2:1,u1:2,u2:-1,x1:210,x2:650,v1:2,v2:-1,p:0,k:0};
+
+function read(){
+  for(const k of ['m1','m2','u1','u2']){
+    const el=$(k);s[k]=+el.value;
+    const f=(el.value-el.min)/(el.max-el.min),pos=q=>`calc(11px + ${q} * (100% - 22px))`;
+    const centered=k[0]==='u',a=centered?Math.min(f,.5):0,b=centered?Math.max(f,.5):f;
+    el.style.setProperty('--sa',a===0?'0px':pos(a));
+    el.style.setProperty('--sb',b===1?'100%':pos(b));
+  }
+  $('m1o').textContent=num(s.m1)+' kg';$('m2o').textContent=num(s.m2)+' kg';
+  $('u1o').textContent=num(s.u1)+' m/s';$('u2o').textContent=num(s.u2)+' m/s';
+}
+
+function finals(){
+  if(mode==='elastic'){
+    s.v1=((s.m1-s.m2)*s.u1+2*s.m2*s.u2)/(s.m1+s.m2);
+    s.v2=(2*s.m1*s.u1+(s.m2-s.m1)*s.u2)/(s.m1+s.m2);
+  }else{
+    s.v1=s.v2=(s.m1*s.u1+s.m2*s.u2)/(s.m1+s.m2);
+  }
+}
+
+function stop(){run=false;if(raf)cancelAnimationFrame(raf);raf=0;$('play').dataset.state='paused'}
+
+function reset(){
+  stop();read();
+  s.x1=210;s.x2=650;s.v1=s.u1;s.v2=s.u2;hit=false;
+  s.p=s.m1*s.u1+s.m2*s.u2;
+  s.k=.5*s.m1*s.u1*s.u1+.5*s.m2*s.u2*s.u2;
+  $('status').textContent='Ready to collide';
+  update();draw();
+}
+
+const fmt=(n,u)=>num(n.toFixed(2))+'<span class="unit">'+u+'</span>';
+function badge(id,text,ok){const b=$(id);b.textContent=text;b.className='badge'+(ok?' ok':'')}
+
+function update(){
+  let p=s.m1*s.v1+s.m2*s.v2,k=.5*s.m1*s.v1*s.v1+.5*s.m2*s.v2*s.v2;
+  $('pb').innerHTML=fmt(s.p,'kg\u00b7m/s');$('pa').innerHTML=fmt(p,'kg\u00b7m/s');
+  $('kb').innerHTML=fmt(s.k,'joules');$('ka').innerHTML=fmt(k,'joules');
+  if(!hit){
+    badge('pbadge','Awaiting collision');badge('kbadge','Awaiting collision');
+  }else{
+    const dp=Math.abs(p-s.p)<.005,d=s.k-k,dk=Math.abs(d)<.005;
+    badge('pbadge',dp?'Conserved':'Changed',dp);
+    badge('kbadge',dk?'Conserved':'Lost '+d.toFixed(2)+' J',dk);
+  }
+  $('formula').innerHTML=mode==='elastic'
+    ?'<b>Elastic:</b> momentum and kinetic energy are conserved.<br>Relative speed of approach = relative speed of separation.'
+    :'<b>Perfectly inelastic:</b> momentum is conserved, kinetic energy is not.<br>The carts move together with a common final velocity.';
+}
+
+function wheel(cx,cy,color){
+  ctx.fillStyle='#000';ctx.strokeStyle=color;ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=color;ctx.beginPath();ctx.arc(cx,cy,2.5,0,Math.PI*2);ctx.fill();
+}
+
+function cart(x,y,w,color,label,m,v){
+  ctx.save();
+  ctx.shadowColor='rgba(255,255,255,.14)';ctx.shadowBlur=22;
+  ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,72,12);ctx.fill();
+  ctx.restore();
+  ctx.fillStyle='#000';ctx.textAlign='center';
+  ctx.font=`700 18px ${F}`;ctx.fillText(label,x+w/2,y+28);
+  ctx.font=`500 12px ${F}`;ctx.fillText(num(m)+' kg',x+w/2,y+47);
+  ctx.font=`600 13px ${F}`;ctx.fillText(num(v.toFixed(1))+' m/s',x+w/2,y+64);
+  wheel(x+w*.25,y+76,color);wheel(x+w*.75,y+76,color);
+}
+
+function arrow(x,y,v,color){
+  if(Math.abs(v)<.05)return;
+  let d=Math.sign(v),len=28+Math.abs(v)*12,e=x+d*len;
+  ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=3;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(e-d*4,y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(e,y);ctx.lineTo(e-d*11,y-7);ctx.lineTo(e-d*11,y+7);ctx.closePath();ctx.fill();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#181818');g.addColorStop(1,'#000');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // ruler under the track
+  ctx.lineWidth=1;
+  for(let i=0;i<=50;i++){
+    const x=35+i*18.6,major=i%10===0;
+    ctx.strokeStyle=major?'#636367':'#333336';
+    ctx.beginPath();ctx.moveTo(Math.round(x)+.5,TRACK_Y+12);ctx.lineTo(Math.round(x)+.5,TRACK_Y+(major?26:19));ctx.stroke();
+  }
+  ctx.strokeStyle='#707074';ctx.lineWidth=2;ctx.lineCap='butt';
+  ctx.beginPath();ctx.moveTo(35,TRACK_Y);ctx.lineTo(965,TRACK_Y);ctx.stroke();
+
+  ctx.fillStyle='#8e8e93';ctx.font=`500 13px ${F}`;
+  ctx.textAlign='left';ctx.fillText('Before',35,34);
+  ctx.textAlign='right';ctx.fillText(hit?'After collision':'Approaching',965,34);
+
+  let w1=52+s.m1*3,w2=52+s.m2*3;
+  cart(s.x1,190,w1,CA,'A',s.m1,hit?s.v1:s.u1);
+  cart(s.x2,190,w2,CB,'B',s.m2,hit?s.v2:s.u2);
+  arrow(s.x1+w1/2,150,hit?s.v1:s.u1,CA);
+  arrow(s.x2+w2/2,150,hit?s.v2:s.u2,CB);
+
+  ctx.fillStyle=hit?'#fff':'#c7c7cc';ctx.textAlign='center';ctx.font=`600 18px ${F}`;
+  ctx.fillText(hit?(mode==='elastic'?'Elastic collision':'Perfectly inelastic'):'Watch the carts collide',500,105);
+}
+
+function tick(t){
+  if(!run)return;
+  if(!last)last=t;
+  let dt=Math.min((t-last)/1000,.035);
+  last=t,s.x1+=(hit?s.v1:s.u1)*62*dt,s.x2+=(hit?s.v2:s.u2)*62*dt;
+  let w1=52+s.m1*3;
+  if(!hit&&s.x1+w1>=s.x2){
+    let contact=(s.x1+w1+s.x2)/2;
+    s.x1=contact-w1;s.x2=contact;finals();hit=true;
+    $('status').textContent=mode==='elastic'?'Collision complete: carts bounce apart':'Collision complete: carts stick together';
+  }
+  if(hit&&mode==='inelastic')s.x2=s.x1+w1+2;
+  if(s.x1<30||s.x2>970||s.x2<30||s.x1>970){stop();$('status').textContent='Finished. Press Reset to run again.'}
+  update();draw();
+  if(run)raf=requestAnimationFrame(tick);
+}
+
+function play(){
+  if(run){stop();return}
+  run=true;last=0;$('play').dataset.state='playing';
+  raf=requestAnimationFrame(tick);
+}
+
+function setMode(m){
+  mode=m;
+  for(const id of ['elastic','inelastic']){
+    const on=id===m;$(id).classList.toggle('active',on);$(id).setAttribute('aria-pressed',on);
+  }
+  reset();
+}
+
+['m1','m2','u1','u2'].forEach(id=>$(id).addEventListener('input',reset));
+$('elastic').onclick=()=>setMode('elastic');
+$('inelastic').onclick=()=>setMode('inelastic');
+$('play').onclick=play;
+$('reset').onclick=reset;
+reset();
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
